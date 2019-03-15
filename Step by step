@@ -1,0 +1,104 @@
+MySQl 1 : 192.168.88.101
+MYSQL 2 : 192.168.88.201
+========================================
+Step 1 :
+				In MySQL-1 
+
+							# yum update
+							# yum install mariadb-server mariadb-client
+		
+							# systemctl start mariadb 
+							# vi /etc/my.cnf
+		
+										// add
+										server-id=1
+										log_bin =mariadb-bin.log
+										binlog_do_db=example                      // name database want to replication
+	
+							# systemctl restart mariadb 
+							# systemctl enable mariadb
+	
+							// Firewall 
+							# firewall-cmd --permanent --add-service=mysql
+							# firewall-cmd --permanent --add-port=3306/tcp
+							# firewall-cmd --permanent --add-port=3306/udp
+		
+							# mysql  																				// Connect to database local
+		
+								> create user 'replicator'@'%' identified by 'password'; 
+								> grant replication slave on *.* to 'replicator'@'%'; 
+								> create databases example;
+								> flush privileges;
+			
+Step 2 :
+				In MySQL-2
+
+							# yum update
+							# yum install mariadb-server mariadb-client
+		
+							# systemctl start mariadb 
+							# vi /etc/my.cnf
+		
+										// add
+										server-id=2
+										log_bin =mariadb-bin.log
+										binlog_do_db=example                      // name database want to replication
+						
+							# systemctl restart mariadb 
+							# systemctl enable mariadb
+	
+							// Firewall 
+							# firewall-cmd --permanent --add-service=mysql
+							# firewall-cmd --permanent --add-port=3306/tcp
+							# firewall-cmd --permanent --add-port=3306/udp
+		
+							# mysql
+			
+								> create user 'replicator'@'%' identified by 'password'; 
+								> create database example;
+								> grant replication slave on *.* to 'replicator'@'%';
+								> flush privileges;
+			
+	Step 3 :
+						In MySQL-1
+						
+							# mysql
+								
+								> show master status
+										+------------------+----------+--------------+------------------+
+										| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB |
+										+------------------+----------+--------------+------------------+
+										| mysql-bin.000004 |      107 | example      |                  |
+										+------------------+----------+--------------+------------------+
+										1 row in set (0.00 sec)
+	Step 4 :
+						In MySQL-2
+						
+							# mysql
+							
+								> slave stop; 
+								> CHANGE MASTER TO MASTER_HOST = '192.168.88.101', MASTER_USER = 'replicator', MASTER_PASSWORD = 'password', MASTER_LOG_FILE = 'mysql-bin.000004', MASTER_LOG_POS = 107; 
+								> slave start; 
+								
+								> show master status;
+								+------------------+----------+--------------+------------------+
+								| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB |
+								+------------------+----------+--------------+------------------+
+								| mysql-bin.000001 |      107 | example      |                  |
+								+------------------+----------+--------------+------------------+
+								1 row in set (0.00 sec)
+								
+	Step 5 :
+					In MySQL-1
+					
+							# mysql
+							
+								> slave stop; 
+								>	CHANGE MASTER TO MASTER_HOST = '192.168.88.201', MASTER_USER = 'replicator', MASTER_PASSWORD = 'password', MASTER_LOG_FILE = 'mysql-bin.000001', MASTER_LOG_POS = 107; 
+								>	slave start; 
+								
+	Step 6 : TEST
+							
+								
+						
+						
